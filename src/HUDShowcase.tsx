@@ -12,7 +12,6 @@ import { GridBackground } from "./components/GridBackground";
 import { CornerBrackets } from "./components/CornerBrackets";
 import { ProgressReadout } from "./components/ProgressReadout";
 import { Callout } from "./components/Callout";
-import { TiltedCard } from './TiltedCard';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const THEME = {
@@ -23,62 +22,56 @@ const THEME = {
 };
 
 // ─── Canvas & timing constants ─────────────────────────────────────────────────
-const W = 1920;
-const H = 1080;
+// Portrait 2:3 canvas to match the gi image (1024×1536).
+// Must match <Composition width={1080} height={1620} /> in Root.tsx
+const W = 1080;
+const H = 1620;
 const TOTAL = 300; // frames
 const HOLD_START = 240; // frame at which callouts fade out (last 2 sec)
 
-// ─── Callout data — placeholder anchors on a 1920×1080 canvas ─────────────────
-//
-//  The product image renders ~800 px tall centred at (960, 540).
-//  Assuming a portrait garment image whose visible body spans roughly:
-//    X: 700 – 1220   Y: 120 – 960
-//
-//  Placeholder anchor points (fromX, fromY) and label tips (toX, toY):
-//
-//  1. COLLAR  — top-centre of the garment
-//     from: (960, 195)  →  label top-right: (1160, 140)
-//
-//  2. CHEST PATCH — upper-left chest area
-//     from: (810, 390)  →  label left: (580, 360)
-//
-//  3. BELT BUCKLE — mid-body / waist
-//     from: (960, 590)  →  label right: (1200, 560)
-//
-//  4. HEM LOGO — lower-front hem
-//     from: (1010, 790)  →  label right: (1230, 820)
-//
+// ─── Callout data ─────────────────────────────────────────────────────────────
+// The gi renders ~907×1361 px, centred at (540, 810).
+// fromX/fromY = anchor on the garment, toX/toY = label position.
+// Nudge the "to" values after previewing.
 const CALLOUTS = [
   {
-    fromX: 960, fromY: 195,
-    toX: 1160, toY: 140,
+    fromX: 512, fromY: 192,
+    toX: 800, toY: 130,
     title: "COLLAR UNIT",
     subtitle: "Reinforced rib knit / 2.4 cm",
     startFrame: 30,
     endFrame: HOLD_START,
   },
   {
-    fromX: 810, fromY: 390,
-    toX: 570, toY: 340,
+    fromX: 603, fromY: 347,
+    toX: 200, toY: 300,
     title: "CHEST PATCH",
     subtitle: "Woven badge / 68×42 mm",
     startFrame: 70,
     endFrame: HOLD_START,
   },
   {
-    fromX: 965, fromY: 590,
-    toX: 1210, toY: 560,
-    title: "BELT SYSTEM",
-    subtitle: "Elastic webbing / adj. fit",
+    fromX: 791, fromY: 378,
+    toX: 860, toY: 500,
+    title: "SLEEVE PATCH",
+    subtitle: "Woven badge / 55 mm",
     startFrame: 110,
     endFrame: HOLD_START,
   },
   {
-    fromX: 1015, fromY: 800,
-    toX: 1235, toY: 840,
+    fromX: 618, fromY: 790,
+    toX: 880, toY: 880,
     title: "HEM LABEL",
     subtitle: "ROKAI embroidered logo",
     startFrame: 155,
+    endFrame: HOLD_START,
+  },
+  {
+    fromX: 388, fromY: 1104,
+    toX: 140, toY: 1180,
+    title: "KNEE PANEL",
+    subtitle: "Double-layer reinforcement",
+    startFrame: 195,
     endFrame: HOLD_START,
   },
 ];
@@ -88,7 +81,7 @@ const ProductImage: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Slow scale: 1 → 1.08 over full duration via spring with very low stiffness
+  // Slow scale: 1 → 1.08 over full duration
   const scaleSpring = spring({
     frame,
     fps,
@@ -101,7 +94,7 @@ const ProductImage: React.FC = () => {
   // RotateY wobble: slow sinusoidal ±6 deg
   const rotateY = 6 * Math.sin((frame / TOTAL) * Math.PI * 2);
 
-  // Subtle translate (Ken Burns pan)
+  // Subtle Ken Burns pan
   const panX = interpolate(frame, [0, TOTAL], [-18, 18], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -123,10 +116,10 @@ const ProductImage: React.FC = () => {
       }}
     >
       <img
-        src={staticFile("gi-product1.png")}
+        src={staticFile("gi-product.png")}
         style={{
-          maxHeight: "82%",
-          maxWidth: "60%",
+          maxHeight: "84%",
+          maxWidth: "92%",
           objectFit: "contain",
           transform: `scale(${scaleSpring}) translateX(${panX}px) translateY(${panY}px) rotateY(${rotateY}deg)`,
           filter: "drop-shadow(0 0 48px rgba(255,59,48,0.18))",
@@ -154,7 +147,7 @@ const WordmarkOverlay: React.FC<{ holdStart: number }> = ({ holdStart }) => {
     <div
       style={{
         position: "absolute",
-        bottom: 72,
+        bottom: 40,
         left: 0,
         right: 0,
         display: "flex",
@@ -195,9 +188,12 @@ const WordmarkOverlay: React.FC<{ holdStart: number }> = ({ holdStart }) => {
 
 // ─── Callout wrapper that handles its own fade-out ────────────────────────────
 const FadingCallout: React.FC<{
-  fromX: number; fromY: number;
-  toX: number; toY: number;
-  title: string; subtitle: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  title: string;
+  subtitle: string;
   endFrame: number;
 }> = ({ fromX, fromY, toX, toY, title, subtitle, endFrame }) => {
   const frame = useCurrentFrame();
@@ -215,9 +211,12 @@ const FadingCallout: React.FC<{
   return (
     <g opacity={fadeOut}>
       <Callout
-        fromX={fromX} fromY={fromY}
-        toX={toX} toY={toY}
-        title={title} subtitle={subtitle}
+        fromX={fromX}
+        fromY={fromY}
+        toX={toX}
+        toY={toY}
+        title={title}
+        subtitle={subtitle}
       />
     </g>
   );
@@ -226,15 +225,7 @@ const FadingCallout: React.FC<{
 // ─── Main composition ─────────────────────────────────────────────────────────
 export const HUDShowcase: React.FC = () => {
   return (
-    <AbsoluteFill
-      style={{
-        background: THEME.background,
-        overflow: "hidden",
-        scale: 1.198,
-        translate: "-48px 0px"
-      }}
-      from={54}
-    >
+    <AbsoluteFill style={{ background: THEME.background, overflow: "hidden" }}>
       {/* Layer 1 – Animated grid */}
       <GridBackground />
 
@@ -245,14 +236,18 @@ export const HUDShowcase: React.FC = () => {
       <svg
         width={W}
         height={H}
+        viewBox={`0 0 ${W} ${H}`}
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       >
         {CALLOUTS.map((c, i) => (
           <Sequence key={i} from={c.startFrame} layout="none">
             <FadingCallout
-              fromX={c.fromX} fromY={c.fromY}
-              toX={c.toX} toY={c.toY}
-              title={c.title} subtitle={c.subtitle}
+              fromX={c.fromX}
+              fromY={c.fromY}
+              toX={c.toX}
+              toY={c.toY}
+              title={c.title}
+              subtitle={c.subtitle}
               endFrame={c.endFrame - c.startFrame}
             />
           </Sequence>
@@ -267,9 +262,6 @@ export const HUDShowcase: React.FC = () => {
 
       {/* Layer 6 – ROKAI wordmark (holds at end) */}
       <WordmarkOverlay holdStart={HOLD_START} />
-      <TiltedCard rotate={-6}>
-  <img src={staticFile('gi-product.png')} alt="Rokai Gi" />
-</TiltedCard>
     </AbsoluteFill>
   );
 };
